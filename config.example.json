@@ -1,0 +1,14 @@
+{
+  "claude_api_key": "",
+  "claude_fast_model": "claude-3-5-haiku-20241022",
+  "claude_detail_model": "claude-3-5-sonnet-20241022",
+  "openai_api_key": "",
+  "openai_tts_model": "gpt-4o-mini-tts",
+  "openai_tts_voice": "shimmer",
+  "news_refresh_seconds": 25,
+  "news_max_age_hours": 24,
+  "market_pairs": ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD"],
+  "market_extras": ["DXY", "XAU/USD", "CRUDE", "US10Y"],
+  "price_refresh_seconds": 15,
+  "alert_min_score": 7.0
+}
