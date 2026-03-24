@@ -142,7 +142,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    // AI Status Info (read-only — Keys sind pre-coded in APIKeys.swift)
+                    // AI Status Info (read-only — Keys liegen serverseitig im Backend)
                     SettingsSection(title: "KI-STATUS") {
                         HStack(spacing: 8) {
                             Circle().fill(Color.bzGreen).frame(width: 8, height: 8)

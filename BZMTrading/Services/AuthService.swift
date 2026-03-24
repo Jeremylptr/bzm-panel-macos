@@ -342,4 +342,9 @@ final class AuthService: ObservableObject {
         ]
         SecItemDelete(query as CFDictionary)
     }
+
+    // Exponiert den App-Token für interne, authentifizierte Backend-API-Calls.
+    func backendToken() -> String? {
+        load(key: tokenKey)
+    }
 }

@@ -21,7 +21,7 @@ struct CalendarPanelView: View {
 
     var body: some View {
         ScrollView {
-            if state.calendar.isEmpty {
+            if !state.calendarLoadedOnce {
                 VStack(spacing: 12) {
                     Spacer(minLength: 30)
                     Image(systemName: "calendar")
@@ -30,6 +30,22 @@ struct CalendarPanelView: View {
                     Text("Lade Kalender…")
                         .font(terminalFontSmall)
                         .foregroundColor(.textMuted)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+            } else if state.calendar.isEmpty {
+                VStack(spacing: 10) {
+                    Spacer(minLength: 30)
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 28))
+                        .foregroundColor(.textMuted)
+                    Text("Kalender aktuell nicht erreichbar")
+                        .font(terminalFontSmall)
+                        .foregroundColor(.textMuted)
+                    Text("Die App versucht automatisch erneut zu laden.")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.textMuted.opacity(0.8))
                     Spacer()
                 }
                 .frame(maxWidth: .infinity)

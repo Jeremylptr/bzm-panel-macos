@@ -328,7 +328,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_SUEnableAutomaticChecks = YES;
-				INFOPLIST_KEY_SUFeedURL = "https://www.bluezonemarkets.com/appcast.xml";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/Jeremylptr/bzm-panel-macos/main/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "grYA33cMk2AW+zww0C8pqTegFPj1zyLvcorL1L/+iy0=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -379,7 +379,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				INFOPLIST_KEY_SUEnableAutomaticChecks = YES;
-				INFOPLIST_KEY_SUFeedURL = "https://www.bluezonemarkets.com/appcast.xml";
+				INFOPLIST_KEY_SUFeedURL = "https://raw.githubusercontent.com/Jeremylptr/bzm-panel-macos/main/appcast.xml";
 				INFOPLIST_KEY_SUPublicEDKey = "grYA33cMk2AW+zww0C8pqTegFPj1zyLvcorL1L/+iy0=";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

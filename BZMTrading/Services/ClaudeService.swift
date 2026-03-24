@@ -48,6 +48,7 @@ struct InstrumentAnalysis {
 // ── Haupt-Service ─────────────────────────────────────────────────────────────
 
 actor ClaudeService {
+    private let wixBaseURL = "https://www.bluezonemarkets.com/_functions"
     private var workingModel: String? = nil
     private var requestTimes: [Date] = []
 
@@ -322,23 +323,20 @@ actor ClaudeService {
 
     // ── TTS via OpenAI ────────────────────────────────────────────
     func synthesizeSpeech(text: String) async -> Data? {
-        guard !APIKeys.openAI.hasPrefix("DEIN_") else {
-            print("[TTS] Kein OpenAI Key konfiguriert")
+        guard let token = await appToken() else {
+            print("[TTS] Kein App-Token verfügbar")
             return nil
         }
-        guard let url = URL(string: "https://api.openai.com/v1/audio/speech") else { return nil }
-
+        guard let url = URL(string: "\(wixBaseURL)/aiTTS") else { return nil }
         var req = URLRequest(url: url, timeoutInterval: 90)
         req.httpMethod = "POST"
-        req.setValue("application/json",           forHTTPHeaderField: "Content-Type")
-        req.setValue("Bearer \(APIKeys.openAI)",   forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model":           "tts-1",          // tts-1 oder tts-1-hd
-            "voice":           APIKeys.ttsVoice, // alloy, echo, fable, onyx, nova, shimmer
-            "input":           String(text.prefix(4096)),
-            "response_format": "mp3",
-            "speed":           1.0
+            "token": token,
+            "model": APIKeys.ttsModel,
+            "voice": APIKeys.ttsVoice,
+            "text": String(text.prefix(4096))
         ]
 
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
@@ -353,15 +351,17 @@ actor ClaudeService {
                 print("[TTS] Kein HTTP-Response")
                 return nil
             }
-            if http.statusCode == 200 {
-                print("[TTS] Erfolg — \(data.count) Bytes MP3")
-                return data
-            } else {
-                // Fehler-Body ausgeben damit wir wissen was falsch ist
+            guard http.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let ok = json["ok"] as? Bool, ok,
+                  let audioB64 = json["audioBase64"] as? String,
+                  let audioData = Data(base64Encoded: audioB64) else {
                 let errorBody = String(data: data, encoding: .utf8) ?? "(keine Details)"
                 print("[TTS] Fehler HTTP \(http.statusCode): \(errorBody)")
                 return nil
             }
+            print("[TTS] Erfolg — \(audioData.count) Bytes MP3")
+            return audioData
         } catch {
             print("[TTS] Netzwerkfehler: \(error.localizedDescription)")
             return nil
@@ -377,32 +377,36 @@ actor ClaudeService {
     }
 
     private func callClaude(model: String, prompt: String, maxTokens: Int) async throws -> String {
-        guard !APIKeys.claude.hasPrefix("DEIN_"),
-              let url = URL(string: "https://api.anthropic.com/v1/messages") else {
+        guard let token = await appToken(),
+              let url = URL(string: "\(wixBaseURL)/aiClaude") else {
             throw URLError(.userAuthenticationRequired)
         }
         var req = URLRequest(url: url, timeoutInterval: 35)
         req.httpMethod = "POST"
-        req.setValue("application/json",  forHTTPHeaderField: "Content-Type")
-        req.setValue(APIKeys.claude,      forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01",        forHTTPHeaderField: "anthropic-version")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = [
+            "token": token,
             "model": model,
-            "max_tokens": maxTokens,
-            "temperature": 0.1,
-            "messages": [["role": "user", "content": prompt]]
+            "maxTokens": maxTokens,
+            "prompt": prompt
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
-        guard let json  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let cont  = json["content"] as? [[String: Any]],
-              let text  = cont.first?["text"] as? String else {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let ok = json["ok"] as? Bool, ok,
+              let text = json["text"] as? String else {
             throw URLError(.cannotParseResponse)
         }
         return text
+    }
+
+    private func appToken() async -> String? {
+        await MainActor.run {
+            AuthService.shared.backendToken()
+        }
     }
 
     private func parseRawJSON(_ raw: String) -> [String: Any]? {

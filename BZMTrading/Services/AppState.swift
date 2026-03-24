@@ -10,6 +10,7 @@ final class AppState: ObservableObject {
     @Published var news: [NewsItem] = []
     @Published var prices: [String: PriceData] = [:]
     @Published var calendar: [CalendarEvent] = []
+    @Published var calendarLoadedOnce: Bool = false
     @Published var scanner: ScannerResult = ScannerResult()
 
     // ─── UI State ────────────────────────────────────────────────
@@ -100,10 +101,8 @@ final class AppState: ObservableObject {
             aiModel = model
             let short = model.replacingOccurrences(of: "claude-", with: "").replacingOccurrences(of: "-2024", with: "")
             status = "✓ Claude bereit (\(short))"
-        } else if APIKeys.claude.hasPrefix("DEIN_") {
-            status = "⚠ API-Key in APIKeys.swift eintragen"
         } else {
-            status = "⚠ Claude-Verbindung fehlgeschlagen"
+            status = "⚠ AI-Backend nicht erreichbar"
         }
 
         // Start all background loops
@@ -198,6 +197,7 @@ final class AppState: ObservableObject {
         await svc.start { [weak self] events in
             Task { @MainActor [weak self] in
                 self?.calendar = events
+                self?.calendarLoadedOnce = true
             }
         }
     }

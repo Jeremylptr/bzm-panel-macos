@@ -2,6 +2,11 @@ import Foundation
 
 typealias CalendarCallback = ([CalendarEvent]) async -> Void
 
+private func calLog(_ msg: String) {
+    let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+    print("[\(ts)] [Calendar] \(msg)")
+}
+
 actor CalendarService {
     private let config: Config
     private var events: [CalendarEvent] = []
@@ -24,33 +29,86 @@ actor CalendarService {
     }
 
     func start(callback: @escaping CalendarCallback) async {
-        await fetch(callback: callback)
+        calLog("→ Calendar loop gestartet")
+        _ = await fetch(callback: callback)
         while true {
-            try? await Task.sleep(nanoseconds: 30 * 60 * 1_000_000_000)
-            await fetch(callback: callback)
+            let success = await fetch(callback: callback)
+            // Bei Fehlern deutlich schneller erneut versuchen.
+            let waitSeconds: UInt64 = success ? 30 * 60 : 60
+            calLog("Nächster Fetch in \(waitSeconds)s (success=\(success))")
+            try? await Task.sleep(nanoseconds: waitSeconds * 1_000_000_000)
         }
     }
 
-    private func fetch(callback: @escaping CalendarCallback) async {
+    @discardableResult
+    private func fetch(callback: @escaping CalendarCallback) async -> Bool {
+        calLog("→ Fetch gestartet")
         var allRaw: [[String: Any]] = []
+        var successfulSources = 0
         for urlStr in Self.urls {
-            guard let url = URL(string: urlStr) else { continue }
-            var req = URLRequest(url: url, timeoutInterval: 15)
-            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-            guard let (data, _) = try? await URLSession.shared.data(for: req),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { continue }
-            allRaw.append(contentsOf: json)
+            if let raw = await fetchSource(urlStr: urlStr) {
+                successfulSources += 1
+                allRaw.append(contentsOf: raw)
+            }
+        }
+        calLog("Quellen erfolgreich: \(successfulSources)/\(Self.urls.count), Raw-Events: \(allRaw.count)")
+
+        // Kein Source erreichbar → alten Stand beibehalten statt Liste zu leeren.
+        guard successfulSources > 0, !allRaw.isEmpty else {
+            calLog("⚠ Keine Quelle lieferte Daten, nutze bestehenden Stand (\(events.count) Events)")
+            await callback(getUpcoming(hours: 48))
+            return false
         }
 
         var processed: [CalendarEvent] = []
         for raw in allRaw {
             if let ev = process(raw: raw) { processed.append(ev) }
         }
+        guard !processed.isEmpty else {
+            calLog("⚠ Verarbeitung ergab 0 Events, nutze bestehenden Stand (\(events.count) Events)")
+            await callback(getUpcoming(hours: 48))
+            return false
+        }
         processed.sort { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
         events = processed
 
         let upcoming = getUpcoming(hours: 48)
+        calLog("✓ Fetch erfolgreich: gespeichert=\(events.count), upcoming(48h)=\(upcoming.count)")
         await callback(upcoming)
+        return true
+    }
+
+    private func fetchSource(urlStr: String) async -> [[String: Any]]? {
+        guard let url = URL(string: urlStr) else { return nil }
+        let backoffSeconds: [UInt64] = [0, 1, 2]
+        for wait in backoffSeconds {
+            if wait > 0 {
+                try? await Task.sleep(nanoseconds: wait * 1_000_000_000)
+            }
+            var req = URLRequest(url: url, timeoutInterval: 15)
+            req.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+            req.setValue("application/json", forHTTPHeaderField: "Accept")
+            guard let (data, resp) = try? await URLSession.shared.data(for: req) else {
+                calLog("Source \(urlStr) Versuch \(wait + 1) fehlgeschlagen (Netzwerk)")
+                continue
+            }
+            if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                calLog("Source \(urlStr) Versuch \(wait + 1) HTTP \(http.statusCode)")
+                continue
+            }
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]], !json.isEmpty {
+                calLog("Source \(urlStr) Versuch \(wait + 1) ok: \(json.count) Events")
+                return json
+            }
+            calLog("Source \(urlStr) Versuch \(wait + 1) lieferte leere/ungueltige JSON")
+        }
+        calLog("✗ Source dauerhaft fehlgeschlagen: \(urlStr)")
+        return nil
+    }
+
+    private func eventID(title: String, country: String, eventTime: String) -> String {
+        let hashData = "\(title)\(country)\(eventTime)".data(using: .utf8) ?? Data()
+        return hashData.md5Hex.prefix(16).description
     }
 
     private func process(raw: [String: Any]) -> CalendarEvent? {
@@ -71,8 +129,7 @@ actor CalendarService {
         let eventTime = toIsoString(eventDate) ?? dateStr
         let timeDisplay = makeTimeDisplay(date: eventDate, rawTime: rawTime)
 
-        var hashData = "\(title)\(country)\(eventTime)".data(using: .utf8) ?? Data()
-        let eid = hashData.md5Hex.prefix(16).description
+        let eid = eventID(title: title, country: country, eventTime: eventTime)
         let currency = Self.countryCurrency[country] ?? String(country.prefix(3))
 
         return CalendarEvent(
