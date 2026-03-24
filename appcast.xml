@@ -6,5 +6,19 @@
     <title>BZM Panel Updates</title>
     <link>https://github.com/Jeremylptr/bzm-panel-macos/releases</link>
     <description>Offizielle Updates fuer BZM Panel</description>
+
+    <item>
+      <title>BZM Panel 1.0.2</title>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+      <description><![CDATA[Bugfixes und Verbesserungen.]]></description>
+      <pubDate>Tue, 24 Mar 2026 23:59:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/Jeremylptr/bzm-panel-macos/releases/download/v1.0.2/BZM-Panel-1.0.2.zip"
+        sparkle:edSignature="pi/RuNm0DEDvV5vI/XizuscTj8TYk63nzi7Bqayem0L/d1eBQREM13npu5HXUfIV1AOEZYU+9HQJ/nRJHXcLCw=="
+        length="2343179"
+        type="application/octet-stream" />
+    </item>
+
   </channel>
 </rss>
